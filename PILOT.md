@@ -31,7 +31,12 @@ Status: Phases 0–6 are merged and live. Work through the launch checklist and 
 - [ ] **GitHub pauses scheduled workflows** in public repos after 60 days without repository activity (it emails a warning). If that happens, re-enable **Ingest FTC data** under Actions; the Vercel cron keeps NY/NJ covered meanwhile.
 - [ ] **Enforce the CSP:** after a few days of clean `csp-violation` logs (Vercel → Logs), rename `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in `next.config.ts`. See README → Deploys.
 - [ ] **Low security findings:** decide on L1–L16 in `SECURITY_REVIEW.md`. L1 (CSP, now report-only), L2 (HttpOnly cookies), and L15 (Dependabot) are done.
-- [ ] **Dependabot:** confirm its first weekly runs open PRs and that CI and Security scans pass on them.
+- [x] **Dependabot:** weekly runs open PRs and CI and Security scans run on them (first batch merged Nov 12).
+- [ ] **Held-back majors:** TypeScript 7 and ESLint 10 (blocked until `eslint-config-next` / `typescript-eslint` support them) and `@types/node` majors (match `.nvmrc`, Node 24) are ignored in `.github/dependabot.yml`. Re-check when Next releases support, and remove the ignore entries then.
+- [ ] **CodeQL:** dismiss alerts #2–#4 on `/auth/confirm` as false positives if they're still open (Supabase verifies the code or token server-side; every failure redirects to /login).
+- [ ] **Private vulnerability reporting:** turn it on (Settings → Code security) so the link in `SECURITY.md` works.
+- [ ] **Ingest after the repo rename:** `ingest.yml` only ran in `hawl3y/scam-radar`, so scheduled GitHub ingest skipped after the rename (Vercel cron still ran). Fixed Nov 12; confirm the next weekday's runs under Actions → Ingest FTC data, and that the coverage check stays quiet.
+- [ ] **Alert types after the Nov 12 change:** existing alerts were recalculated to their most common report type. Spot-check a few in `/admin`.
 - [ ] **Supabase email templates:** whenever `supabase/templates/sign-in.html` or the subject changes, re-paste both into **Magic Link** and **Confirm signup** in dev and prod (README → Auth settings).
 - [ ] **Resend free-tier limit:** 100 emails a day including sign-in emails. Alerts stop at `EMAIL_DAILY_BUDGET` (90) and you get a "daily email limit" email. If that happens, or digest users pass ~80, upgrade Resend and raise `EMAIL_DAILY_BUDGET` in Vercel.
 
@@ -100,7 +105,8 @@ Use this for any future rename or domain change too. Keep the old domain working
 **6. People and materials**
 - [ ] Sign-ins are per domain, so users have to sign in again on the new domain. Say so in the next digest or on the home page.
 - [ ] Reprint flyers from `/flyer` (the QR code follows `PUBLIC_SITE_URL`).
-- [ ] Optional: rename the GitHub repo (then update the link in `CLAUDE.md`) and the Supabase/Vercel project names.
+- [x] Rename the GitHub repo (now `hawl3y/byebell`; links updated Nov 12).
+- [ ] Optional: rename the Supabase/Vercel project names.
 
 **7. Verify on production**
 - [ ] A sign-in email arrives from the new sender, and its link opens the new domain.

@@ -6,7 +6,7 @@ import { COLORS, escapeHtml, group, paragraph, renderEmail, rows, type EmailBloc
 export type AdminEmail = Omit<EmailContent, "footer">;
 
 /** Where to look when FTC ingest or trend coverage has problems. */
-export const INGEST_RUNS_URL = "https://github.com/hawl3y/scam-radar/actions/workflows/ingest.yml";
+export const INGEST_RUNS_URL = "https://github.com/hawl3y/byebell/actions/workflows/ingest.yml";
 
 export function renderAdminEmail(siteUrl: string, email: AdminEmail): RenderedEmail {
   return renderEmail(siteUrl, {

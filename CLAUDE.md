@@ -1,6 +1,6 @@
 # CLAUDE.md — scam-radar
 
-## Current status (Oct 2026)
+## Current status (Nov 2026)
 - **Phases 0–6 are complete and merged.** The app is live (Vercel + Supabase prod).
 - **The app is ByeBell** (official; tagline "Ring the bell on scams") at **https://byebell.com**. `www.byebell.com` and the old scam-radar.joechawley.com 308-redirect to it (keep the old domain for at least a year). Email: alerts@ and no-reply@byebell.com via Resend; support@byebell.com (DreamHost). Display name, logo (`src/components/logo.tsx`), and app icons are ByeBell.
 - **The pilot is starting.** Next steps, open follow-ups, the weekly routine, and the rename checklist are in `PILOT.md`.
@@ -14,8 +14,16 @@
   - Weekly Dependabot (npm and Actions), CodeQL, gitleaks, and `npm audit` in CI.
   - A ruleset protecting `main`.
   - The comment and security-checklist guardrails below, plus the PR template.
+- **Done Nov 12 (PRs #36–#43):**
+  - Report flow: Post no longer loops on multi-line reports (browser CRLF line breaks were treated as a new redaction). Redaction is idempotent and protects placeholders; if Post hides something new, it says what. Leading/trailing blank lines are trimmed and blank-line runs collapsed.
+  - Type prefill: government impersonation ("State of [Place]", government; bid/RFP/procurement/agency only with a government signal).
+  - An alert's type is the most common type among its visible reports ("Something else" never wins; ties go to the most recent), recalculated in `refresh_cluster`.
+  - "What to do" tips match the channel: email and text lead with "Don't click links…"; calls keep "Hang up and call back".
+  - CI `db-tests` job runs pgTAP tests (`supabase/tests/`) on every PR; required on `main`.
+  - CodeQL alerts on `/auth/confirm`: log injection fixed (`src/lib/log.ts`); the three "bypass" alerts were false positives, and the token type is now allow-listed anyway. `SECURITY.md` added.
+  - Dependabot: CodeQL actions grouped; majors for TypeScript (7), ESLint (10), and `@types/node` ignored until Next supports them (and `.nvmrc` moves past Node 24).
 - Phase statuses and every decision made during the build (matching, alerts, reputation, limits, pilot targets) are in `PROJECT_BRIEF.md` §8 and §10. Future work is §11; don't start it without the owner.
-- Name, tagline, domain, and sender emails are set in `src/lib/site.ts` (plus the outside-the-code places in `PILOT.md`). The repo and infrastructure names keep "scam-radar".
+- Name, tagline, domain, and sender emails are set in `src/lib/site.ts` (plus the outside-the-code places in `PILOT.md`). The GitHub repo is `hawl3y/byebell`; the local folder, `package.json`, and Supabase project names keep "scam-radar".
 
 ## Start here
 1. Read `PROJECT_BRIEF.md` fully before planning or writing code. It is the source of truth.
@@ -53,5 +61,5 @@
 
 ## Environment
 - Owner develops on macOS (VS Code + Claude Code). Keep setup reproducible and documented in `README.md`.
-- GitHub: https://github.com/hawl3y/scam-radar
+- GitHub: https://github.com/hawl3y/byebell
 - Hosting: Vercel. Previews (dev database) per branch; production (prod database) from `main` at https://byebell.com.

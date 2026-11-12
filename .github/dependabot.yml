@@ -12,6 +12,11 @@ updates:
       # Types must match the Node major in .nvmrc (24); newer types allow APIs that fail at runtime.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Next's lint config (typescript-eslint, eslint plugins) doesn't support these yet.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

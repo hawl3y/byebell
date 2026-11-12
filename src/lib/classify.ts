@@ -19,6 +19,10 @@ const RULES: Record<Exclude<ScamType, "other">, RegExp[]> = {
     /\b(electric|gas|water|power|utility) (company|bill|shut ?off|disconnect\w*)\b/i,
     /\b(con ?ed|con edison|pseg|national grid)\b/i,
     /\b(account (has been|is) (suspended|locked|frozen))\b/i,
+    // Case-sensitive so "state of the art" or "state of mind" don't match.
+    /\bState of [A-Z]/,
+    /\b(government|agency)\b/i,
+    /\b(rfp|bids?|bidding|procurement)\b/i,
   ],
   family_emergency: [
     /\b(grand(son|daughter|ma|mother|pa|father|child|kid)s?)\b/i,

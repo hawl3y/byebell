@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { suggestScamType } from "./classify";
+import { RFP_BID_REPORT } from "./fixtures/pilot-reports";
 
 const s = (t: string) => suggestScamType(t);
 
@@ -19,6 +20,12 @@ describe("suggestScamType", () => {
 
   it("treats family + arrest as a family emergency, not impersonation", () => {
     expect(s("Officer here, your grandson was arrested and needs bail").type).toBe("family_emergency");
+  });
+
+  it("recognizes government bid and procurement messages as impersonation", () => {
+    expect(s(RFP_BID_REPORT)).toEqual({ type: "impersonation", confident: true });
+    expect(s("Procurement notice from a government agency")).toEqual({ type: "impersonation", confident: true });
+    expect(s("Their roofing quote was state of the art")).toEqual({ type: "in_person", confident: true });
   });
 
   it("defaults to other when nothing matches", () => {

@@ -28,9 +28,18 @@ const PLACEHOLDER_BASE = 0xe010;
 const KINDS = Object.keys(PLACEHOLDERS) as RedactionKind[];
 const PLACEHOLDER_TOKENS = /[-]/g;
 
-/** Browsers submit textarea line breaks as CRLF; normalize so a round trip doesn't look like an edit. */
+/**
+ * Browsers submit textarea line breaks as CRLF; normalize so a round trip
+ * doesn't look like an edit. Pasted emails also carry runs of blank (often
+ * space-only) lines, which are collapsed to one.
+ */
 export function normalizeText(input: string): string {
-  return input.replace(/[\uE000-\uE01F]/g, "").replace(/\r\n?/g, "\n");
+  return input
+    .replace(/[\uE000-\uE01F]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/^[^\S\n]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+|\n+$/g, "");
 }
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;

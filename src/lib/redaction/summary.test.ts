@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PLACEHOLDERS, redact } from "./index";
+import { RFP_BID_REPORT as PILOT_REPORT } from "../fixtures/pilot-reports";
+import { normalizeText, PLACEHOLDERS, redact } from "./index";
 import { checkBeforePost, foundSummary } from "./summary";
 
 // A multi-line report: the textarea posts it back with CRLF line breaks, which
@@ -8,30 +9,6 @@ const REPORT =
   "Got a call from 555-123-4567 saying my grandson Tommy was in jail.\n" +
   "He said to pay at secure-bail.com and gave a code 482913.\n\n" +
   "Thanks,\nJohn Smith";
-
-// Reported verbatim from the pilot (Nov 2026). Some blank lines hold one space.
-const PILOT_REPORT = [
-  "Invitation to Submit a Project Bid: RFP -D81762",
-  "Inbox",
-  "",
-  "STATE OF NEW YORK <enquiries@statesnewyorkbid.com>",
-  "8:32 AM (4 hours ago)",
-  "to state_of_newyork_bids_list, bcc: me",
-  "",
-  "The State of New York has invited you to bid on the below project.",
-  " ",
-  "",
-  "PROJECT OVERVIEW",
-  " ",
-  "Project Id:  RFP -D81762",
-  "",
-  "Project Starts:  11/19/2026",
-  " ",
-  "Project URL: VIEW PROJECT DETAILS",
-  "",
-  "",
-  "Please note: This Bidding Matches Your Business Commodity Code.",
-].join("\n");
 
 const browserRoundTrip = (s: string) => s.replace(/\n/g, "\r\n");
 
@@ -86,7 +63,28 @@ describe("pilot report: RFP bid email", () => {
   it("hides only the sender email and is stable on a second pass", () => {
     const once = redact(PILOT_REPORT);
     expect(once.found).toEqual({ email: 1 });
-    expect(once.text).toContain("STATE OF NEW YORK <[email]>");
+    expect(once.text).toBe(
+      [
+        "Invitation to Submit a Project Bid: RFP -D81762",
+        "Inbox",
+        "",
+        "STATE OF NEW YORK <[email]>",
+        "8:32 AM (4 hours ago)",
+        "to state_of_newyork_bids_list, bcc: me",
+        "",
+        "The State of New York has invited you to bid on the below project.",
+        "",
+        "PROJECT OVERVIEW",
+        "",
+        "Project Id:  RFP -D81762",
+        "",
+        "Project Starts:  11/19/2026",
+        "",
+        "Project URL: VIEW PROJECT DETAILS",
+        "",
+        "Please note: This Bidding Matches Your Business Commodity Code.",
+      ].join("\n"),
+    );
     expect(redact(once.text)).toEqual({ text: once.text, found: {} });
   });
 
@@ -95,6 +93,17 @@ describe("pilot report: RFP bid email", () => {
     const check = checkBeforePost(browserRoundTrip(shown));
     expect(check.notice).toBeUndefined();
     expect(check.text).toBe(shown);
+  });
+});
+
+describe("normalizeText", () => {
+  it("trims blank lines at the ends and collapses runs of blank lines to one", () => {
+    expect(normalizeText("\n \n\tHi\n\n \n\t\n\nthere\nyou\n \n\n")).toBe("\tHi\n\nthere\nyou");
+  });
+
+  it("is idempotent", () => {
+    const once = normalizeText(PILOT_REPORT);
+    expect(normalizeText(once)).toBe(once);
   });
 });
 

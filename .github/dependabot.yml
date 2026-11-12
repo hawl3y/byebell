@@ -8,6 +8,10 @@ updates:
       # One PR for routine updates; majors still get their own.
       npm-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Types must match the Node major in .nvmrc (24); newer types allow APIs that fail at runtime.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

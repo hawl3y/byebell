@@ -193,7 +193,7 @@ Settled during the build (the former open questions plus later decisions). Chang
 | Topic | Decision |
 |---|---|
 | Name and domain | **ByeBell** (tagline "Ring the bell on scams"), official. Production domain **byebell.com** (registered at DreamHost); www and the old scam-radar.joechawley.com 308-redirect to it. The repo, Supabase/Vercel project names, and internal identifiers keep "scam-radar". |
-| Matching | Postgres `pg_trgm` text similarity, **no AI**. Join a cluster at score ≥ 0.45; Check shows matches at ≥ 0.32 (calibrated with `scripts/calibrate-matching.mts`). Clustering ignores scam type; 50-mile, 90-day window. |
+| Matching | Postgres `pg_trgm` text similarity, **no AI**. Join a cluster at score ≥ 0.45; Check shows matches at ≥ 0.32 (calibrated with `scripts/calibrate-matching.mts`). Clustering ignores scam type; 50-mile, 90-day window. An alert's type is the most common type among its visible reports ("Something else" never wins over a specific type; ties go to the most recent), recalculated when reports are added or hidden. |
 | Redaction | Rules only. The reporter sees and edits a redacted preview before posting; the server redacts again on post. Links are kept but always shown defanged and never clickable. |
 | Location | Zip code centers only (US Census ZCTA). Default radius 10 miles (choices 5, 10, 25). |
 | Email provider | **Resend**, for Supabase sign-in emails (custom SMTP) and alerts. Alert emails stop at `EMAIL_DAILY_BUDGET` (default 90/day) because of Resend's free-plan limit. |

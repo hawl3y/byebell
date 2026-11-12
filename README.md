@@ -67,6 +67,9 @@ Keep the CLI linked to **dev**. Prod gets migrations automatically from the `Mig
 
 Migrations must work with the code already in production (add columns/tables; rename or drop only in a later change), because the prod migration and the Vercel production deploy run at the same time.
 
+### Database tests
+pgTAP tests live in `supabase/tests/`. Run them against dev with `supabase test db --linked` (the CLI's test runner needs Docker Desktop running). Each test runs in a transaction and rolls back. CI doesn't run them.
+
 ### Auth settings (do this in each project's dashboard)
 - **Authentication → Sign In / Providers → Email:** enabled. Leave "Confirm email" on.
 - **Authentication → URL Configuration:**

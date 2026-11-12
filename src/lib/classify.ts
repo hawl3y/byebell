@@ -4,7 +4,18 @@ import type { ScamType } from "./scam-types";
 // one group matches (or one clearly outscores the rest); otherwise the form
 // defaults to "Something else or not sure". Runs in the browser as people type.
 
-const RULES: Record<Exclude<ScamType, "other">, RegExp[]> = {
+type Pattern = Pick<RegExp, "test">;
+
+// Case-sensitive so "state of the art" or "state of mind" don't match.
+const STATE_OR_CITY_OF = /\b(?:State|City) of [A-Z]/;
+const GOV_WORDS = /\b(?:government|federal|state|county|department)\b|\.gov\b/i;
+// Common outside government ("eBay bid", "travel agency"), so they need a government signal too.
+const BID_WORDS = /\b(?:rfp|bids?|bidding|procurement|agency)\b/i;
+const governmentBid: Pattern = {
+  test: (text) => BID_WORDS.test(text) && (STATE_OR_CITY_OF.test(text) || GOV_WORDS.test(text)),
+};
+
+const RULES: Record<Exclude<ScamType, "other">, Pattern[]> = {
   fake_fee: [
     /\b(usps|ups|fedex|dhl|post office|postal service)\b/i,
     /\b(package|parcel|shipment|delivery|redeliver\w*)\b/i,
@@ -19,10 +30,9 @@ const RULES: Record<Exclude<ScamType, "other">, RegExp[]> = {
     /\b(electric|gas|water|power|utility) (company|bill|shut ?off|disconnect\w*)\b/i,
     /\b(con ?ed|con edison|pseg|national grid)\b/i,
     /\b(account (has been|is) (suspended|locked|frozen))\b/i,
-    // Case-sensitive so "state of the art" or "state of mind" don't match.
-    /\bState of [A-Z]/,
-    /\b(government|agency)\b/i,
-    /\b(rfp|bids?|bidding|procurement)\b/i,
+    STATE_OR_CITY_OF,
+    /\bgovernment\b/i,
+    governmentBid,
   ],
   family_emergency: [
     /\b(grand(son|daughter|ma|mother|pa|father|child|kid)s?)\b/i,
@@ -57,7 +67,7 @@ export type Suggestion = { type: ScamType; confident: boolean };
 
 export function suggestScamType(text: string): Suggestion {
   const scores = new Map<Exclude<ScamType, "other">, number>();
-  for (const [type, patterns] of Object.entries(RULES) as [Exclude<ScamType, "other">, RegExp[]][]) {
+  for (const [type, patterns] of Object.entries(RULES) as [Exclude<ScamType, "other">, Pattern[]][]) {
     const score = patterns.filter((p) => p.test(text)).length;
     if (score > 0) scores.set(type, score);
   }

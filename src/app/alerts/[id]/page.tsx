@@ -7,7 +7,7 @@ import { getCluster, getClusterExamples, getMyClusterStatus, getMyExampleState }
 import { crowdLabel } from "@/lib/crowd";
 import { formatDistance, formatTimeAgo } from "@/lib/format";
 import { defang } from "@/lib/redaction";
-import { CHANNELS, scamTypeInfo } from "@/lib/scam-types";
+import { CHANNELS, scamTypeInfo, tipsFor } from "@/lib/scam-types";
 import { SITE_NAME } from "@/lib/site";
 import { createPublicClient } from "@/lib/supabase/public";
 import { ClearReportDraft } from "@/components/local-report-data";
@@ -144,7 +144,7 @@ async function AlertCard({ params, searchParams }: PageProps<"/alerts/[id]">) {
       <section className="space-y-2">
         <h2 className="text-xl font-bold">What to do</h2>
         <ul className="list-disc space-y-1 pl-6">
-          {type.tips.map((tip) => (
+          {tipsFor(cluster.scam_type, examples[0]?.channel).map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
         </ul>

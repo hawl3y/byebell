@@ -11,7 +11,10 @@ export const CHANNELS = {
 
 export type Channel = keyof typeof CHANNELS;
 
-type ScamTypeInfo = { label: string; tips: string[] };
+/** `messageTips` replaces `tips` for email and text, after LINK_TIP. */
+type ScamTypeInfo = { label: string; tips: readonly string[]; messageTips?: readonly string[] };
+
+export const LINK_TIP = "Don't click links. Go to the official website yourself.";
 
 // The 7 groups people choose from (and the app writes).
 export const SCAM_TYPES = {
@@ -21,6 +24,7 @@ export const SCAM_TYPES = {
       "Don't click the link. Check tracking or your account on the carrier's or agency's own website or app.",
       "Carriers and toll agencies don't ask for payment by text, or threaten instant penalties.",
     ],
+    messageTips: ["Carriers and toll agencies don't ask for payment by text, or threaten instant penalties."],
   },
   impersonation: {
     label: "Impersonation (government, bank, utility, police)",
@@ -29,11 +33,20 @@ export const SCAM_TYPES = {
       "Real agencies, banks, and utilities don't demand immediate payment or ask for your PIN or a code sent to your phone.",
       "Never pay with gift cards, wire transfers, payment apps, or cryptocurrency.",
     ],
+    messageTips: [
+      "Real agencies, banks, and utilities don't demand immediate payment or ask for your PIN or a code sent to your phone.",
+      "Never pay with gift cards, wire transfers, payment apps, or cryptocurrency.",
+    ],
   },
   family_emergency: {
     label: "Family emergency (grandparent, loved one in trouble)",
     tips: [
       "Hang up and call your family member directly on a number you know.",
+      "Ask a question only the real person would know.",
+      "Scammers push for secrecy and speed. Take your time and tell someone.",
+    ],
+    messageTips: [
+      "Call your family member directly on a number you know.",
       "Ask a question only the real person would know.",
       "Scammers push for secrecy and speed. Take your time and tell someone.",
     ],
@@ -69,6 +82,10 @@ export const SCAM_TYPES = {
       "Never pay with gift cards, wire transfers, or cryptocurrency.",
       "When in doubt, talk to someone you trust before acting.",
     ],
+    messageTips: [
+      "Never pay with gift cards, wire transfers, or cryptocurrency.",
+      "When in doubt, talk to someone you trust before acting.",
+    ],
   },
 } as const satisfies Record<string, ScamTypeInfo>;
 
@@ -98,6 +115,13 @@ export function toScamType(value: string): ScamType {
 
 export function scamTypeInfo(value: string): ScamTypeInfo {
   return SCAM_TYPES[toScamType(value)];
+}
+
+/** Tips for how the scam arrived: email and text lead with LINK_TIP; calls and others get the default list. */
+export function tipsFor(type: string, channel: Channel | null | undefined): readonly string[] {
+  const info = scamTypeInfo(type);
+  if (channel === "email" || channel === "text") return [LINK_TIP, ...(info.messageTips ?? info.tips)];
+  return info.tips;
 }
 
 export const CHANNEL_KEYS = Object.keys(CHANNELS) as [Channel, ...Channel[]];

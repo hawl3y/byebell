@@ -46,6 +46,11 @@
 - When something in the brief is unclear or conflicts with best practice, ask instead of guessing.
 - Keep responses brief: only what's needed.
 
+## Reporting style
+- End-of-task summaries in chat: at most 5 short bullets covering what changed, check results, and anything the owner needs to do.
+- Skip root-cause narratives, file-by-file detail, and checklist results unless something failed or the owner asks.
+- Full detail goes in the PR description, not the chat.
+
 ## Environment
 - Owner develops on macOS (VS Code + Claude Code). Keep setup reproducible and documented in `README.md`.
 - GitHub: https://github.com/hawl3y/scam-radar

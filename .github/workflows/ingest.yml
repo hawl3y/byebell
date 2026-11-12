@@ -1,9 +1,9 @@
 name: Ingest FTC data
 
-# Calls the production ingest endpoint every 15 minutes on weekday afternoons,
-# after the FTC's daily update (~noon Eastern). The API's burst throttle allows
-# only ~100 requests per run from Vercel, so many short runs cover all states;
-# each run skips work already done. Vercel Cron (vercel.json) runs daily as a backup.
+# Backup for the Supabase pg_cron job (README → Unwanted-call trends), which is
+# the main schedule: GitHub drops many scheduled runs. Odd minutes avoid the
+# busiest times. Each run skips work already done, so overlaps are cheap.
+# Vercel Cron (vercel.json) also runs daily.
 #
 # Minutes: this repo is public, so GitHub-hosted runners are free. If it went
 # private: at most 16 runs x ~22 weekdays x 5 billed minutes = 1,760 min/month
@@ -11,7 +11,7 @@ name: Ingest FTC data
 # Free plan's 2,000.
 on:
   schedule:
-    - cron: "*/15 17-20 * * 1-5"
+    - cron: "7,22,37,52 17-20 * * 1-5"
   workflow_dispatch:
 
 permissions: {}

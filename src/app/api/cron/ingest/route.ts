@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { notifyAdmins } from "@/lib/alerts/admin-notify";
 import { easternDate } from "@/lib/alerts/policy";
 import { isCronRequest } from "@/lib/cron-auth";
@@ -11,6 +11,16 @@ export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
   if (!isCronRequest(request)) return new NextResponse("Unauthorized", { status: 401 });
+  // pg_cron's caller (pg_net) gives up after a few seconds; reply right away and
+  // run within this function's lifetime so a dropped connection can't cut the run short.
+  if (request.nextUrl.searchParams.get("background") === "1") {
+    after(() => ingestAndReport().catch((e) => console.error("ingest failed", e)));
+    return NextResponse.json({ started: true }, { status: 202 });
+  }
+  return NextResponse.json(await ingestAndReport());
+}
+
+async function ingestAndReport() {
   const result = await runIngest();
   console.log("ingest", JSON.stringify(result));
 
@@ -35,5 +45,5 @@ export async function GET(request: NextRequest) {
       `ingest-${easternDate(new Date())}`,
     ).catch((e) => console.error("notify failed", e));
   }
-  return NextResponse.json(result);
+  return result;
 }

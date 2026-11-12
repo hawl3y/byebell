@@ -28,6 +28,15 @@ describe("suggestScamType", () => {
     expect(s("County RFP: submit your bid today")).toEqual({ type: "impersonation", confident: true });
     expect(s("Bid invitation, details at nyc-bids.gov")).toEqual({ type: "impersonation", confident: true });
     expect(s("City of Yonkers procurement office: bid closes Friday")).toEqual({ type: "impersonation", confident: true });
+    for (const text of [
+      "A state agency invited us to submit a bid",
+      "The state department of transportation RFP is open",
+      "Department of Transportation bid invitation",
+      "The police department procurement office needs your bid",
+      "state government procurement notice",
+    ]) {
+      expect(s(text).type, text).toBe("impersonation");
+    }
     expect(s("Their roofing quote was state of the art")).toEqual({ type: "in_person", confident: true });
   });
 
@@ -38,6 +47,8 @@ describe("suggestScamType", () => {
       "A staffing agency called about a job I never applied for",
       "A travel agency said I won a free cruise",
       "An insurance agency kept calling about my car warranty",
+      "State Farm insurance agency called about my policy renewal",
+      "The billing department said my bid on the item was accepted",
     ]) {
       expect(s(text).type, text).not.toBe("impersonation");
     }

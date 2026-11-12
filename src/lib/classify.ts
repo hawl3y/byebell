@@ -6,13 +6,21 @@ import type { ScamType } from "./scam-types";
 
 type Pattern = Pick<RegExp, "test">;
 
-// Case-sensitive so "state of the art" or "state of mind" don't match.
-const STATE_OR_CITY_OF = /\b(?:State|City) of [A-Z]/;
-const GOV_WORDS = /\b(?:government|federal|state|county|department)\b|\.gov\b/i;
+// The place must be capitalized so "state of the art" or "state of mind" don't match.
+const STATE_OR_CITY_OF = /\b[Ss]tate of [A-Z]|\b[Cc]ity of [A-Z]/;
+// "state" and "department" alone are too common ("State Farm", "billing
+// department"), so they only count in government phrases.
+const GOV_SIGNALS: RegExp[] = [
+  STATE_OR_CITY_OF,
+  /\b[Dd]epartment of (?:the )?[A-Z]/,
+  /\bstate (?:agency|department|government)\b/i,
+  /\b(?:state|county|city|police) department\b/i,
+  /\b(?:government|federal|county)\b|\.gov\b/i,
+];
 // Common outside government ("eBay bid", "travel agency"), so they need a government signal too.
 const BID_WORDS = /\b(?:rfp|bids?|bidding|procurement|agency)\b/i;
 const governmentBid: Pattern = {
-  test: (text) => BID_WORDS.test(text) && (STATE_OR_CITY_OF.test(text) || GOV_WORDS.test(text)),
+  test: (text) => BID_WORDS.test(text) && GOV_SIGNALS.some((p) => p.test(text)),
 };
 
 const RULES: Record<Exclude<ScamType, "other">, Pattern[]> = {

@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   ingest:
-    if: github.repository == 'hawl3y/scam-radar'
+    if: github.repository == 'hawl3y/byebell'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:

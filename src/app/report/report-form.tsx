@@ -4,30 +4,13 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CodeInput } from "@/components/code-input";
 import { suggestScamType } from "@/lib/classify";
-import { defang, type RedactionKind } from "@/lib/redaction";
+import { defang } from "@/lib/redaction";
+import { foundSummary } from "@/lib/redaction/summary";
 import { DRAFT_KEY, LAST_ZIP_KEY, parseDraft, saveDraft, type StoredDraft } from "@/lib/report-draft";
 import { DESCRIPTION_MAX } from "@/lib/report-schema";
 import { CHANNELS, SCAM_TYPES, toScamType, type Channel, type ScamType } from "@/lib/scam-types";
 import { reportAction, type ReportState } from "./actions";
 import { reportSignIn, type ReportSignInState } from "./sign-in-actions";
-
-const KIND_LABELS: Record<RedactionKind, [string, string]> = {
-  phone: ["phone number", "phone numbers"],
-  email: ["email address", "email addresses"],
-  card: ["card number", "card numbers"],
-  account: ["account number", "account numbers"],
-  ssn: ["Social Security number", "Social Security numbers"],
-  code: ["code", "codes"],
-  address: ["address", "addresses"],
-  name: ["name", "names"],
-};
-
-function foundSummary(found: Partial<Record<RedactionKind, number>>) {
-  const parts = (Object.entries(found) as [RedactionKind, number][]).map(
-    ([kind, n]) => `${n} ${KIND_LABELS[kind][n === 1 ? 0 : 1]}`,
-  );
-  return parts.length ? `We hid ${parts.join(", ")}.` : "We didn't find any personal details to hide.";
-}
 
 const inputClass = "block w-full min-h-12 rounded-md border-2 border-border bg-background px-3 text-lg";
 const primaryButton =
@@ -136,7 +119,7 @@ export function ReportForm({ signedIn, defaultZip, hasHomeZip }: Props) {
               {serverState.notice}
             </p>
           )}
-          {serverState && <p role="status">{foundSummary(serverState.found)}</p>}
+          {serverState && !serverState.notice && <p role="status">{foundSummary(serverState.found)}</p>}
 
           <label className="block space-y-2">
             <span className="block font-bold">This is what neighbors will see</span>

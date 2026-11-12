@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { suggestScamType } from "./classify";
+import { RFP_BID_REPORT } from "./fixtures/pilot-reports";
 
 const s = (t: string) => suggestScamType(t);
 
@@ -19,6 +20,38 @@ describe("suggestScamType", () => {
 
   it("treats family + arrest as a family emergency, not impersonation", () => {
     expect(s("Officer here, your grandson was arrested and needs bail").type).toBe("family_emergency");
+  });
+
+  it("recognizes government bid and procurement messages as impersonation", () => {
+    expect(s(RFP_BID_REPORT)).toEqual({ type: "impersonation", confident: true });
+    expect(s("Procurement notice from a government agency")).toEqual({ type: "impersonation", confident: true });
+    expect(s("County RFP: submit your bid today")).toEqual({ type: "impersonation", confident: true });
+    expect(s("Bid invitation, details at nyc-bids.gov")).toEqual({ type: "impersonation", confident: true });
+    expect(s("City of Yonkers procurement office: bid closes Friday")).toEqual({ type: "impersonation", confident: true });
+    for (const text of [
+      "A state agency invited us to submit a bid",
+      "The state department of transportation RFP is open",
+      "Department of Transportation bid invitation",
+      "The police department procurement office needs your bid",
+      "state government procurement notice",
+    ]) {
+      expect(s(text).type, text).toBe("impersonation");
+    }
+    expect(s("Their roofing quote was state of the art")).toEqual({ type: "in_person", confident: true });
+  });
+
+  it("doesn't treat bid or agency words alone as government impersonation", () => {
+    for (const text of [
+      "I lost an auction bid on a lamp and they texted me to pay anyway",
+      "Someone outbid me on eBay, then offered to sell it to me directly. Bid fell through.",
+      "A staffing agency called about a job I never applied for",
+      "A travel agency said I won a free cruise",
+      "An insurance agency kept calling about my car warranty",
+      "State Farm insurance agency called about my policy renewal",
+      "The billing department said my bid on the item was accepted",
+    ]) {
+      expect(s(text).type, text).not.toBe("impersonation");
+    }
   });
 
   it("defaults to other when nothing matches", () => {

@@ -1,0 +1,23 @@
+// Reported verbatim from the pilot (Nov 2026). Some blank lines hold one space.
+export const RFP_BID_REPORT = [
+  "Invitation to Submit a Project Bid: RFP -D81762",
+  "Inbox",
+  "",
+  "STATE OF NEW YORK <enquiries@statesnewyorkbid.com>",
+  "8:32 AM (4 hours ago)",
+  "to state_of_newyork_bids_list, bcc: me",
+  "",
+  "The State of New York has invited you to bid on the below project.",
+  " ",
+  "",
+  "PROJECT OVERVIEW",
+  " ",
+  "Project Id:  RFP -D81762",
+  "",
+  "Project Starts:  11/19/2026",
+  " ",
+  "Project URL: VIEW PROJECT DETAILS",
+  "",
+  "",
+  "Please note: This Bidding Matches Your Business Commodity Code.",
+].join("\n");

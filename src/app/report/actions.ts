@@ -8,6 +8,7 @@ import { assignCluster } from "@/lib/clusters";
 import { allowRequest } from "@/lib/rate-limit";
 import { RATE_LIMITED_MESSAGE, RATE_LIMITS } from "@/lib/rate-limits";
 import { redact, type RedactionKind } from "@/lib/redaction";
+import { checkBeforePost } from "@/lib/redaction/summary";
 import { reportDraftSchema, type ReportDraft } from "@/lib/report-schema";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -70,15 +71,9 @@ async function post(formData: FormData): Promise<ReportState> {
   }
 
   // Redact again: the reporter may have edited the text after the preview.
-  const { text, found } = redact(parsed.data.description);
-  if (text !== parsed.data.description) {
-    return {
-      step: "preview",
-      version: Date.now(),
-      draft: { ...parsed.data, description: text },
-      found,
-      notice: "We hid a few more details. Please check it again, then post.",
-    };
+  const { text, found, notice } = checkBeforePost(parsed.data.description);
+  if (notice) {
+    return { step: "preview", version: Date.now(), draft: { ...parsed.data, description: text }, found, notice };
   }
   if (!(await zipExists(parsed.data.zip))) {
     return { step: "draft", version: Date.now(), values: parsed.data, errors: UNKNOWN_ZIP };

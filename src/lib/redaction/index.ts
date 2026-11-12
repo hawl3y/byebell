@@ -19,8 +19,28 @@ export const PLACEHOLDERS: Record<RedactionKind, string> = {
 
 export type RedactionResult = { text: string; found: Partial<Record<RedactionKind, number>> };
 
-const SENTINEL_OPEN = "";
-const SENTINEL_CLOSE = "";
+const SENTINEL_OPEN = "\uE000";
+const SENTINEL_CLOSE = "\uE001";
+// Placeholders already in the text are swapped for one private-use character
+// each (no letters or digits) so no rule can match inside or across them. This
+// keeps redact(redact(x)) === redact(x), which the post step relies on.
+const PLACEHOLDER_BASE = 0xe010;
+const KINDS = Object.keys(PLACEHOLDERS) as RedactionKind[];
+const PLACEHOLDER_TOKENS = /[-]/g;
+
+/**
+ * Browsers submit textarea line breaks as CRLF; normalize so a round trip
+ * doesn't look like an edit. Pasted emails also carry runs of blank (often
+ * space-only) lines, which are collapsed to one.
+ */
+export function normalizeText(input: string): string {
+  return input
+    .replace(/[\uE000-\uE01F]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/^[^\S\n]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+|\n+$/g, "");
+}
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const SSN = /\b\d{3}-\d{2}-\d{4}\b/g;
@@ -119,7 +139,10 @@ export function redact(input: string): RedactionResult {
     return PLACEHOLDERS[kind];
   };
 
-  let text = input.replace(/[]/g, "").replace(/\r\n?/g, "\n");
+  let text = normalizeText(input);
+  for (const [i, kind] of KINDS.entries()) {
+    text = text.replaceAll(PLACEHOLDERS[kind], String.fromCharCode(PLACEHOLDER_BASE + i));
+  }
 
   text = text.replace(EMAIL, () => count("email"));
 
@@ -157,6 +180,7 @@ export function redact(input: string): RedactionResult {
     new RegExp(`${SENTINEL_OPEN}(\\d+)${SENTINEL_CLOSE}`, "g"),
     (_m, i: string) => links[Number(i)],
   );
+  text = text.replace(PLACEHOLDER_TOKENS, (t) => PLACEHOLDERS[KINDS[t.charCodeAt(0) - PLACEHOLDER_BASE]]);
 
   return { text, found };
 }

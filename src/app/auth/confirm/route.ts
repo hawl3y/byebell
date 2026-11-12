@@ -1,6 +1,7 @@
-import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { postLoginPath } from "@/lib/auth";
+import { parseConfirmParams } from "@/lib/auth-confirm";
+import { sanitizeForLog } from "@/lib/log";
 import { safeNext } from "@/lib/safe-next";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,24 +12,21 @@ import { createClient } from "@/lib/supabase/server";
 //   custom template isn't installed. Needs the PKCE code verifier cookie, so
 //   the link must open in the browser that requested it.
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const code = searchParams.get("code");
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type") as EmailOtpType | null;
+  const params = parseConfirmParams(request.nextUrl.searchParams);
 
   const supabase = await createClient();
   let error: { message: string } | null = null;
 
-  if (code) {
-    ({ error } = await supabase.auth.exchangeCodeForSession(code));
-  } else if (tokenHash && type) {
-    ({ error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash }));
+  if (params.kind === "code") {
+    ({ error } = await supabase.auth.exchangeCodeForSession(params.code));
+  } else if (params.kind === "otp") {
+    ({ error } = await supabase.auth.verifyOtp({ type: params.type, token_hash: params.tokenHash }));
   } else {
-    error = { message: searchParams.get("error_description") ?? "missing code or token_hash" };
+    error = { message: params.reason };
   }
 
   if (error) {
-    console.error("sign-in link failed", error.message);
+    console.error("sign-in link failed", sanitizeForLog(error.message));
     return NextResponse.redirect(new URL("/login?error=link", request.url));
   }
 

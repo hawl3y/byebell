@@ -9,6 +9,30 @@ const REPORT =
   "He said to pay at secure-bail.com and gave a code 482913.\n\n" +
   "Thanks,\nJohn Smith";
 
+// Reported verbatim from the pilot (Nov 2026). Some blank lines hold one space.
+const PILOT_REPORT = [
+  "Invitation to Submit a Project Bid: RFP -D81762",
+  "Inbox",
+  "",
+  "STATE OF NEW YORK <enquiries@statesnewyorkbid.com>",
+  "8:32 AM (4 hours ago)",
+  "to state_of_newyork_bids_list, bcc: me",
+  "",
+  "The State of New York has invited you to bid on the below project.",
+  " ",
+  "",
+  "PROJECT OVERVIEW",
+  " ",
+  "Project Id:  RFP -D81762",
+  "",
+  "Project Starts:  11/19/2026",
+  " ",
+  "Project URL: VIEW PROJECT DETAILS",
+  "",
+  "",
+  "Please note: This Bidding Matches Your Business Commodity Code.",
+].join("\n");
+
 const browserRoundTrip = (s: string) => s.replace(/\n/g, "\r\n");
 
 describe("redaction is idempotent", () => {
@@ -55,6 +79,22 @@ describe("checkBeforePost", () => {
     const check = checkBeforePost(edited);
     expect(check.found).toEqual({ email: 1, phone: 1 });
     expect(check.notice).toBe("We hid 1 email address, 1 phone number in your edits. Please check it again, then post.");
+  });
+});
+
+describe("pilot report: RFP bid email", () => {
+  it("hides only the sender email and is stable on a second pass", () => {
+    const once = redact(PILOT_REPORT);
+    expect(once.found).toEqual({ email: 1 });
+    expect(once.text).toContain("STATE OF NEW YORK <[email]>");
+    expect(redact(once.text)).toEqual({ text: once.text, found: {} });
+  });
+
+  it("posts without looping after the browser round trip", () => {
+    const shown = redact(PILOT_REPORT).text;
+    const check = checkBeforePost(browserRoundTrip(shown));
+    expect(check.notice).toBeUndefined();
+    expect(check.text).toBe(shown);
   });
 });
 

@@ -33,8 +33,6 @@ Status: Phases 0–6 are merged and live. Work through the launch checklist and 
 - [ ] **Low security findings:** decide on L1–L16 in `SECURITY_REVIEW.md`. L1 (CSP, now report-only), L2 (HttpOnly cookies), and L15 (Dependabot) are done.
 - [x] **Dependabot:** weekly runs open PRs and CI and Security scans run on them (first batch merged Nov 12).
 - [ ] **Held-back majors:** TypeScript 7 and ESLint 10 (blocked until `eslint-config-next` / `typescript-eslint` support them) and `@types/node` majors (match `.nvmrc`, Node 24) are ignored in `.github/dependabot.yml`. Re-check when Next releases support, and remove the ignore entries then.
-- [ ] **CodeQL:** dismiss alerts #2–#4 on `/auth/confirm` as false positives if they're still open (Supabase verifies the code or token server-side; every failure redirects to /login).
-- [ ] **Private vulnerability reporting:** turn it on (Settings → Code security) so the link in `SECURITY.md` works.
 - [ ] **Ingest after the repo rename:** `ingest.yml` only ran in `hawl3y/scam-radar`, so scheduled GitHub ingest skipped after the rename (Vercel cron still ran). Fixed Nov 12; confirm the next weekday's runs under Actions → Ingest FTC data, and that the coverage check stays quiet.
 - [ ] **Alert types after the Nov 12 change:** existing alerts were recalculated to their most common report type. Spot-check a few in `/admin`.
 - [ ] **Supabase email templates:** whenever `supabase/templates/sign-in.html` or the subject changes, re-paste both into **Magic Link** and **Confirm signup** in dev and prod (README → Auth settings).

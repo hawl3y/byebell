@@ -1,6 +1,7 @@
 import "server-only";
 import { easternDate } from "@/lib/alerts/policy";
 import { STATE_NAMES } from "@/lib/states";
+import { canStartRequest, HARD_STOP_MS, REQUEST_TIMEOUT_MS } from "@/lib/trending/run-limits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   aggregateDnc,
@@ -41,17 +42,28 @@ const FRESH_HOURS = 6;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 class RateLimitedError extends Error {}
+// Out of time or a stalled request: stop like a 429, keeping completed days.
+class StopRunError extends RateLimitedError {}
 
 let lastRequestAt = 0;
+/** Per run: overlapping runs can share an instance (Fluid compute). */
+type Api = { key: string; stopAt: number };
 
-async function fetchPage(apiKey: string, params: Record<string, string>): Promise<DncRecord[]> {
+async function fetchPage(api: Api, params: Record<string, string>): Promise<DncRecord[]> {
   const wait = lastRequestAt + PACE_MS - Date.now();
   if (wait > 0) await sleep(wait);
+  if (!canStartRequest(Date.now(), api.stopAt)) throw new StopRunError("run time limit");
   lastRequestAt = Date.now();
   const url = new URL(DNC_URL);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("items_per_page", String(PAGE_SIZE));
-  const res = await fetch(url, { headers: { "X-Api-Key": apiKey }, cache: "no-store" });
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { "X-Api-Key": api.key }, cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") throw new StopRunError("FTC DNC request timed out");
+    throw e;
+  }
   // api.data.gov's quota is shared and not always what the headers suggest; treat 429 as "stop for today".
   if (res.status === 429) throw new RateLimitedError("FTC DNC 429");
   if (!res.ok) throw new Error(`FTC DNC ${res.status}`);
@@ -60,10 +72,10 @@ async function fetchPage(apiKey: string, params: Record<string, string>): Promis
 }
 
 /** Area code + date filters work together, so markets get exact days. */
-async function fetchAreaCodeDay(apiKey: string, areaCode: string, day: string): Promise<DncRecord[]> {
+async function fetchAreaCodeDay(api: Api, areaCode: string, day: string): Promise<DncRecord[]> {
   const records: DncRecord[] = [];
   for (let page = 0; page < MAX_PAGES_PER_DAY; page++) {
-    const items = await fetchPage(apiKey, {
+    const items = await fetchPage(api, {
       area_code: areaCode,
       created_date_from: `${day} 00:00:00`,
       created_date_to: `${day} 23:59:59`,
@@ -76,7 +88,7 @@ async function fetchAreaCodeDay(apiKey: string, areaCode: string, day: string): 
   throw new Error(`more than ${MAX_PAGES_PER_DAY} pages for ${areaCode} ${day}`);
 }
 
-async function ingestMarkets(apiKey: string, today: string, deadline: number, now: Date) {
+async function ingestMarkets(api: Api, today: string, deadline: number, now: Date) {
   const admin = createAdminClient();
   const { data: markets, error } = await admin.from("markets").select("state, area_codes").eq("active", true);
   if (error) throw new Error(`markets lookup failed: ${error.message}`);
@@ -103,7 +115,7 @@ async function ingestMarkets(apiKey: string, today: string, deadline: number, no
     if (Date.now() > deadline) break;
     try {
       // Only complaints from the market's state (blank states are dropped).
-      const records = fromState(await fetchAreaCodeDay(apiKey, areaCode, day), STATE_NAMES[stateByAreaCode.get(areaCode)!]);
+      const records = fromState(await fetchAreaCodeDay(api, areaCode, day), STATE_NAMES[stateByAreaCode.get(areaCode)!]);
       const { error: saveError } = await admin.rpc("replace_dnc_day", {
         p_area_code: areaCode,
         p_day: day,
@@ -127,7 +139,7 @@ async function ingestMarkets(apiKey: string, today: string, deadline: number, no
 
 /** Read one state's complaints newest-first until older than fromDay (or out of budget). */
 async function ingestState(
-  apiKey: string,
+  api: Api,
   code: string,
   fromDay: string,
   toDay: string,
@@ -145,7 +157,7 @@ async function ingestState(
     if (!takeRequest()) break;
     let items: DncRecord[];
     try {
-      items = await fetchPage(apiKey, { state: name, offset: String(page * PAGE_SIZE) });
+      items = await fetchPage(api, { state: name, offset: String(page * PAGE_SIZE) });
     } catch (e) {
       // Keep whatever days are already complete; the rest are refreshed next run.
       if (e instanceof RateLimitedError) onRateLimited();
@@ -186,7 +198,7 @@ async function ingestState(
   return { days: days.length, complete: finished, error: fetchError };
 }
 
-async function ingestStates(apiKey: string, today: string, deadline: number, priority: string[], now: Date) {
+async function ingestStates(api: Api, today: string, deadline: number, priority: string[], now: Date) {
   const toDay = shiftDate(today, 1);
   const fromDay = shiftDate(today, STATE_DEPTH_DAYS);
   // Market states first (their fallback matters most), then the rest, rotated
@@ -216,7 +228,7 @@ async function ingestStates(apiKey: string, today: string, deadline: number, pri
   for (const code of queue) {
     if (rateLimited || Date.now() >= deadline) break;
     try {
-      const result = await ingestState(apiKey, code, fromDay, toDay, takeRequest, onRateLimited);
+      const result = await ingestState(api, code, fromDay, toDay, takeRequest, onRateLimited);
       if (result.complete) statesComplete++;
       else statesPartial++;
       if (result.error && !(result.error instanceof RateLimitedError)) {
@@ -239,7 +251,8 @@ async function ingestDnc(now: Date) {
   }
   const today = easternDate(now);
   const deadline = Date.now() + RUN_TIME_BUDGET_MS;
-  const markets = await ingestMarkets(apiKey, today, deadline, now);
+  const api: Api = { key: apiKey, stopAt: Date.now() + HARD_STOP_MS };
+  const markets = await ingestMarkets(api, today, deadline, now);
   // If the markets already hit the throttle, don't spend more requests today.
   const { data: marketRows } = await createAdminClient().from("markets").select("state").eq("active", true);
   const priority = [...new Set((marketRows ?? []).map((m) => m.state as string))];
@@ -253,12 +266,16 @@ async function ingestDnc(now: Date) {
         rateLimited: true,
         totalStates: Object.keys(STATE_NAMES).length,
       }
-    : await ingestStates(apiKey, today, deadline, priority, now);
+    : await ingestStates(api, today, deadline, priority, now);
   return { skipped: false as const, markets, states };
 }
 
 async function ingestIc3() {
-  const res = await fetch(IC3_RSS_URL, { cache: "no-store", headers: { "User-Agent": "scam-radar (community scam alerts)" } });
+  const res = await fetch(IC3_RSS_URL, {
+    cache: "no-store",
+    headers: { "User-Agent": "scam-radar (community scam alerts)" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`IC3 RSS ${res.status}`);
   const headlines = parseIc3Rss(await res.text());
   if (headlines.length === 0) return { headlines: 0 };

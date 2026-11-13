@@ -54,6 +54,30 @@ describe("suggestScamType", () => {
     }
   });
 
+  it("recognizes offers of money as too good to be true", () => {
+    for (const text of [
+      "Hi [name], we’re touching base about the 90k available for you. Please call [phone] to go over next steps.",
+      "Good news: funds available for you today, call to claim",
+      "You've been approved for a $25,000 loan",
+      "You're pre-approved for $5,000 in cash",
+      "Loan available now, $10,000 with no credit check",
+    ]) {
+      expect(s(text), text).toEqual({ type: "too_good", confident: true });
+    }
+  });
+
+  it("doesn't treat ordinary mentions of money or availability as an offer", () => {
+    for (const text of [
+      "Your bill of $90 is due",
+      "We're available to help",
+      "We're available to you any time this week",
+      "Your $500 payment was received",
+      "The cash register is available at the front",
+    ]) {
+      expect(s(text), text).toEqual({ type: "other", confident: false });
+    }
+  });
+
   it("defaults to other when nothing matches", () => {
     expect(s("Someone called and hung up right away")).toEqual({ type: "other", confident: false });
     expect(s("")).toEqual({ type: "other", confident: false });

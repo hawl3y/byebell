@@ -23,6 +23,14 @@ const governmentBid: Pattern = {
   test: (text) => BID_WORDS.test(text) && GOV_SIGNALS.some((p) => p.test(text)),
 };
 
+// Money and "available"/"approved" are each common alone ("your bill of $90",
+// "we're available to help"), so an offer of money needs both.
+const MONEY = /\$\s?\d|\b\d[\d,.]*\s?(?:k|thousand|million|grand|dollars?)\b|\b(?:funds?|money|cash|loans?|grants?|payouts?)\b/i;
+const OFFER = /\bavailable (?:for|to) you\b|\b(?:you(?:['’]ve| have)? been|you['’]?re|you are) (?:pre-?)?approved\b|\bpre-?approved\b|\bapproved for\b|\b(?:funds?|money|cash|loans?|grants?) (?:is |are )?(?:now )?available\b/i;
+const moneyOffer: Pattern = {
+  test: (text) => MONEY.test(text) && OFFER.test(text),
+};
+
 const RULES: Record<Exclude<ScamType, "other">, Pattern[]> = {
   fake_fee: [
     /\b(usps|ups|fedex|dhl|post office|postal service)\b/i,
@@ -53,6 +61,7 @@ const RULES: Record<Exclude<ScamType, "other">, Pattern[]> = {
     /\b(you('ve| have)? won|winner|prize|lottery|sweepstakes|jackpot)\b/i,
     /\b(job offer|hiring|work from home|remote position|mystery shopper|recruiter)\b/i,
     /\b(crypto\w*|bitcoin|investment|invest\b|guaranteed (returns?|profit)|trading platform)\b/i,
+    moneyOffer,
   ],
   tech_support: [
     /\b(microsoft|windows|apple support|geek squad|norton|mcafee)\b/i,

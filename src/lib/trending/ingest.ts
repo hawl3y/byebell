@@ -1,7 +1,7 @@
 import "server-only";
 import { easternDate } from "@/lib/alerts/policy";
 import { STATE_NAMES } from "@/lib/states";
-import { canStartRequest, HARD_STOP_MS, REQUEST_TIMEOUT_MS } from "@/lib/trending/run-limits";
+import { canStartRequest, FUNCTION_LIMIT_MS, HARD_STOP_MS, REQUEST_TIMEOUT_MS } from "@/lib/trending/run-limits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   aggregateDnc,
@@ -9,6 +9,7 @@ import {
   completeDays,
   daysToFetch,
   fromState,
+  orderByLastFetched,
   recordDay,
   shiftDate,
   statesNeedingFetch,
@@ -35,9 +36,12 @@ const MAX_STATE_PAGES = 120;
 // the day on a 429. Markets run first; states get whatever time is left.
 const PACE_MS = 400;
 const RUN_TIME_BUDGET_MS = 240_000;
-// Scheduled runs repeat every 15 minutes (GitHub Actions) plus a daily Vercel
-// cron; skip days and states fetched within this window (see isFresh).
+// Scheduled runs repeat every 15 minutes (pg_cron and GitHub Actions) plus a
+// daily Vercel cron; skip days and states fetched within this window (see isFresh).
 const FRESH_HOURS = 6;
+// After a 429, no run calls the FTC for this long: the throttle needs ~10 quiet
+// minutes, and requests during that time keep it locked.
+const COOLDOWN_MINUTES = 20;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -47,7 +51,7 @@ class StopRunError extends RateLimitedError {}
 
 let lastRequestAt = 0;
 /** Per run: overlapping runs can share an instance (Fluid compute). */
-type Api = { key: string; stopAt: number };
+type Api = { key: string; stopAt: number; throttled: boolean };
 
 async function fetchPage(api: Api, params: Record<string, string>): Promise<DncRecord[]> {
   const wait = lastRequestAt + PACE_MS - Date.now();
@@ -65,7 +69,10 @@ async function fetchPage(api: Api, params: Record<string, string>): Promise<DncR
     throw e;
   }
   // api.data.gov's quota is shared and not always what the headers suggest; treat 429 as "stop for today".
-  if (res.status === 429) throw new RateLimitedError("FTC DNC 429");
+  if (res.status === 429) {
+    api.throttled = true;
+    throw new RateLimitedError("FTC DNC 429");
+  }
   if (!res.ok) throw new Error(`FTC DNC ${res.status}`);
   const body = (await res.json()) as { data?: DncRecord[] | null };
   return body.data ?? [];
@@ -201,18 +208,16 @@ async function ingestState(
 async function ingestStates(api: Api, today: string, deadline: number, priority: string[], now: Date) {
   const toDay = shiftDate(today, 1);
   const fromDay = shiftDate(today, STATE_DEPTH_DAYS);
-  // Market states first (their fallback matters most), then the rest, rotated
-  // daily so the same states aren't always last when time runs out.
   const codes = Object.keys(STATE_NAMES);
-  const offset = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000) % codes.length;
-  const rotated = [...codes.slice(offset), ...codes.slice(0, offset)];
-  const ordered = [...new Set([...priority.filter((c) => c in STATE_NAMES), ...rotated])];
-
-  const { data: status, error: statusError } = await createAdminClient().rpc("dnc_state_ingest_status", {
+  const { data, error: statusError } = await createAdminClient().rpc("dnc_state_ingest_status", {
     p_since: fromDay,
   });
   if (statusError) throw new Error(`dnc_state_ingest_status failed: ${statusError.message}`);
-  const queue = statesNeedingFetch(ordered, status as ({ state: string } & IngestStatus)[], fromDay, toDay, now, FRESH_HOURS);
+  const status = data as ({ state: string } & IngestStatus)[];
+  // Market states first (their fallback matters most), then the rest, least
+  // recently fetched first, so states a run didn't reach go first next time.
+  const ordered = [...new Set([...priority.filter((c) => c in STATE_NAMES), ...orderByLastFetched(codes, status)])];
+  const queue = statesNeedingFetch(ordered, status, fromDay, toDay, now, FRESH_HOURS);
   const skipped = ordered.length - queue.length;
 
   let requests = 0;
@@ -247,11 +252,25 @@ async function ingestDnc(now: Date) {
   const apiKey = process.env.FTC_API_KEY;
   if (!apiKey) {
     console.error("FTC_API_KEY missing; skipping Do Not Call ingestion");
-    return { skipped: true as const };
+    return { skipped: true as const, reason: "no_api_key" as const };
   }
+  const admin = createAdminClient();
+  const { data: claim, error: claimError } = await admin.rpc("dnc_claim_run", { p_seconds: FUNCTION_LIMIT_MS / 1000 });
+  if (claimError) throw new Error(`dnc_claim_run failed: ${claimError.message}`);
+  if (claim !== "claimed") return { skipped: true as const, reason: claim as "running" | "cooldown" };
+
+  const api: Api = { key: apiKey, stopAt: Date.now() + HARD_STOP_MS, throttled: false };
+  try {
+    return await fetchDnc(api, now);
+  } finally {
+    const { error } = await admin.rpc("dnc_finish_run", { p_cooldown_minutes: api.throttled ? COOLDOWN_MINUTES : 0 });
+    if (error) console.error("dnc_finish_run failed", error.message);
+  }
+}
+
+async function fetchDnc(api: Api, now: Date) {
   const today = easternDate(now);
   const deadline = Date.now() + RUN_TIME_BUDGET_MS;
-  const api: Api = { key: apiKey, stopAt: Date.now() + HARD_STOP_MS };
   const markets = await ingestMarkets(api, today, deadline, now);
   // If the markets already hit the throttle, don't spend more requests today.
   const { data: marketRows } = await createAdminClient().from("markets").select("state").eq("active", true);

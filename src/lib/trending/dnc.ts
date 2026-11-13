@@ -92,6 +92,17 @@ export function statesNeedingFetch(
   });
 }
 
+/**
+ * Least recently fetched first (never fetched before anything), keeping the
+ * given order for ties. States a short day didn't reach lead the next day.
+ */
+export function orderByLastFetched(states: string[], status: ({ state: string } & IngestStatus)[]): string[] {
+  const last = new Map<string, number>();
+  for (const s of status) last.set(s.state, Math.max(last.get(s.state) ?? -Infinity, Date.parse(s.fetched_at)));
+  const at = (state: string) => last.get(state) ?? -Infinity;
+  return [...states].sort((a, b) => (at(a) === at(b) ? 0 : at(a) < at(b) ? -1 : 1));
+}
+
 /** YYYY-MM-DD from an FTC created-date ("2026-10-21 13:45:12"); null if malformed. */
 export function recordDay(record: DncRecord): string | null {
   const value = String(record.attributes["created-date"] ?? "");

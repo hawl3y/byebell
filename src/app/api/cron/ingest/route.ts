@@ -30,7 +30,9 @@ async function ingestAndReport() {
   const dnc = result.dnc;
   const problems: string[] = [];
   if ("error" in dnc) problems.push(`FTC: ${dnc.error}`);
-  else if (dnc.skipped) problems.push("FTC: FTC_API_KEY is missing");
+  else if (dnc.skipped) {
+    if (dnc.reason === "no_api_key") problems.push("FTC: FTC_API_KEY is missing");
+  }
   else if (dnc.states.failed > 0) problems.push(`FTC states: ${dnc.states.failed} state(s) failed with a non-rate-limit error`);
   if ("error" in result.ic3) problems.push(`FBI IC3: ${result.ic3.error}`);
 

@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { aggregateDnc, bucketByDay, completeDays, daysToFetch, fromState, isFresh, recordDay, shiftDate, statesNeedingFetch } from "./dnc";
+import { aggregateDnc, bucketByDay, completeDays, daysToFetch, fromState, isFresh, orderByLastFetched, recordDay, shiftDate, statesNeedingFetch } from "./dnc";
+
+describe("orderByLastFetched", () => {
+  const row = (state: string, day: string, fetched_at: string) => ({ state, day, total: 5, fetched_at });
+
+  it("puts never-fetched states first, then the least recently fetched", () => {
+    const status = [
+      row("AL", "2026-11-12", "2026-11-13T17:05:00Z"),
+      row("GA", "2026-11-11", "2026-11-12T20:40:00Z"),
+      row("GA", "2026-11-10", "2026-11-12T20:40:00Z"),
+      row("CA", "2026-11-12", "2026-11-13T17:10:00Z"),
+      row("CA", "2026-11-11", "2026-11-12T17:10:00Z"),
+    ];
+    expect(orderByLastFetched(["AL", "CA", "GA", "ME"], status)).toEqual(["ME", "GA", "AL", "CA"]);
+  });
+
+  it("keeps the given order for ties", () => {
+    expect(orderByLastFetched(["NY", "AL", "ME"], [])).toEqual(["NY", "AL", "ME"]);
+  });
+});
 
 describe("aggregateDnc", () => {
   const records = [
